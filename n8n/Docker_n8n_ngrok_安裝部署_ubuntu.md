@@ -1,268 +1,375 @@
-# Docker、n8n、ngrok 安裝與部署整理
+# Docker、n8n、ngrok 安裝部署整理（Ubuntu 實機修正版）
 
-本整理檔根據以下筆記重組而成，目標是保留可直接操作的安裝與部署步驟：
+本整理檔以 2026-04-12 這台 Ubuntu 主機的實際部署結果為準，不再只描述理想中的 Docker 路線，而是把「能落地的做法」、「目前的限制」、以及「之後如何切回 ngrok / Docker」一起整理清楚。
 
-- `1_Codex CLI + GitHub 完整安裝與使用流程.md`
-- `2_Telegram Bot × n8n（Webhook版）最小可用流程筆記.md`
-- `3_Docker + n8n + ngrok 部署筆記.md`
+## 1. 一句結論
 
-本份內容聚焦於：
-
-- Docker 安裝
-- n8n 以 Docker 方式部署
-- ngrok 設定與 webhook 對接
-- systemd 自動啟動與 webhook 自動修復思路
-
-## 1. 適用場景
-
-這套流程適合以下架構：
+這台機器目前的可用架構不是：
 
 ```text
 Telegram
-→ HTTPS Webhook（ngrok）
+→ ngrok
 → n8n（Docker）
-→ Workflow
-→ Telegram API 回覆
 ```
 
-如果只是要做最小可用版本，核心需求只有三個：
-
-- Docker 能正常執行
-- n8n 容器能對外提供 `5678`
-- ngrok 能把本機 `5678` 暴露成公開 HTTPS URL
-
-## 2. 前置條件
-
-原始筆記中和本主題直接相關的前置條件如下：
-
-- 作業系統：Armbian / ARM64 環境
-- 已可使用 `curl`
-- 已可使用 `sudo`
-- 若需操作 Telegram Bot，需先向 BotFather 取得 `BOT TOKEN`
-
-如果要確認機器架構，可先執行：
-
-```bash
-uname -m
-```
-
-預期為：
+而是：
 
 ```text
-aarch64
+Telegram
+→ HTTPS Tunnel（目前是 localtunnel，之後可切回 ngrok）
+→ n8n（user-level systemd + Node.js）
+→ Workflow
 ```
 
-## 3. Docker 安裝方式
+原因很直接：
 
-原始筆記採用 `get.docker.com` 便利安裝腳本。根據 Docker 官方文件，這個方式適合快速建立測試或開發環境，但不建議直接當成正式環境的標準安裝方式。
+- 主機上沒有可直接使用的 `docker`
+- `sudo` 需要密碼，無法直接做 apt / Docker 安裝
+- rootless Docker 需要的系統元件也不齊
+- 但機器上已經有可用的 Node.js / npm / user-level systemd，所以先把 n8n 跑起來是可行的
 
-另外，Docker 官方文件也說明，Ubuntu 或 Debian 的衍生發行版不屬於正式支援對象，雖然通常仍可依對應的 Ubuntu / Debian 安裝流程使用。Armbian 屬於這類實務上可用、但不是 Docker 官方保證支援的情境。
+## 2. 本機現況
 
-### 3.1 移除有問題的 `docker.io`
+部署當下的主機條件如下：
+
+- OS：`Ubuntu 24.04.4 LTS`
+- Architecture：`x86_64`
+- User：`roger`
+- Node.js：`v24.14.1`
+- npm：`11.11.0`
+- `sudo -n true`：失敗，代表需要密碼
+- `docker`：不存在
+- `ngrok` Agent CLI：不存在
+
+另外兩個重要限制：
+
+1. `loginctl show-user roger -p Linger` 回傳 `Linger=no`
+2. 這代表 user-level service 會在 `roger` 登入後啟動，但不能保證無登入情況下跨 reboot 常駐
+
+## 3. 為什麼這次沒有走 Docker
+
+理想上 Ubuntu 上的標準做法仍然是：
+
+1. 安裝 Docker
+2. 用 Docker 啟動 n8n
+3. 用 ngrok 提供 HTTPS webhook
+
+但這台機器當下卡在兩個層級：
+
+### 3.1 rootful Docker 卡在 `sudo`
+
+文件原本的 Docker 安裝需要：
 
 ```bash
 sudo apt remove docker.io -y
-sudo apt autoremove -y
-```
-
-補充：Docker 官方文件列出的常見衝突套件不只 `docker.io`，還包括 `docker-compose`、`docker-compose-v2`、`docker-doc`、`podman-docker`、`containerd`、`runc` 等；原始筆記只先處理了最直接的 `docker.io`。
-
-### 3.2 使用官方便利腳本安裝 Docker
-
-```bash
 curl -fsSL https://get.docker.com | sh
 ```
 
-如果要更貼近官方正式部署方式，應優先使用 Docker 官方 apt repository 安裝；但在原始筆記的 Armbian 情境下，便利腳本仍是合理的快速路徑。
+這台機器無法直接執行，因為 `sudo` 需要手動輸入密碼。
 
-### 3.3 驗證 Docker 是否正常
+### 3.2 rootless Docker 卡在系統缺件
+
+檢查結果顯示：
+
+- 有 `subuid` / `subgid`
+- 但缺 `newuidmap`
+- 也缺 `slirp4netns`
+
+這代表 rootless Docker 也無法直接落地，除非先由有 root 權限的人安裝：
 
 ```bash
-docker run hello-world
+sudo apt install uidmap slirp4netns iptables
 ```
 
-若安裝成功，應看到類似：
+所以這次的務實做法是：
+
+- 先不用 Docker
+- 直接把 `n8n` 安裝到使用者目錄
+- 用 `systemd --user` 管理
+- 再補一條可公開 HTTPS 的 tunnel
+
+## 4. 最終落地方案
+
+### 4.1 n8n 執行方式
+
+本機目前採用：
 
 ```text
-Hello from Docker!
+Node.js + npm 安裝 n8n
+→ systemd --user 啟動 n8n
+→ 監聽 localhost / 0.0.0.0:5678
 ```
 
-## 4. n8n 部署方式
-
-這份筆記的 n8n 安裝方式不是主機原生安裝，而是直接用 Docker container 部署。
-
-### 4.1 建立 n8n 資料目錄
-
-```bash
-mkdir -p ~/.n8n
-sudo chown -R 1000:1000 ~/.n8n
-```
-
-這一步的目的是修正 volume 掛載後的權限問題。筆記中的對應關係是：
-
-| 主機路徑 | 容器路徑 |
-| --- | --- |
-| `/home/<USER>/.n8n` | `/home/node/.n8n` |
-
-因為容器內的 `node` 使用者 UID 為 `1000`，所以主機端資料夾也要對應權限。
-
-### 4.2 啟動 n8n 容器
-
-原筆記的部署方向沒有問題，但部分環境變數已過時。依目前 n8n 官方 Docker 文件，較接近現況的最小啟動方式如下：
-
-```bash
-docker run -d \
-  --name n8n \
-  --restart always \
-  -p 5678:5678 \
-  -e GENERIC_TIMEZONE="<YOUR_TIMEZONE>" \
-  -e TZ="<YOUR_TIMEZONE>" \
-  -e N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true \
-  -e N8N_RUNNERS_ENABLED=true \
-  -v /home/<USER>/.n8n:/home/node/.n8n \
-  docker.n8n.io/n8nio/n8n
-```
-
-### 4.3 如果要讓 webhook 正常運作，必須補上 `WEBHOOK_URL`
-
-如果 n8n 放在 ngrok 這類 reverse proxy / tunnel 後方，官方文件要求除了 `WEBHOOK_URL` 之外，也要設定 `N8N_PROXY_HOPS=1`。
-
-Webhook 版本部署時，建議用以下方式：
-
-```bash
-docker run -d \
-  --name n8n \
-  --restart always \
-  -p 5678:5678 \
-  -e GENERIC_TIMEZONE="<YOUR_TIMEZONE>" \
-  -e TZ="<YOUR_TIMEZONE>" \
-  -e N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true \
-  -e N8N_RUNNERS_ENABLED=true \
-  -e WEBHOOK_URL=https://xxxxx.ngrok-free.app \
-  -e N8N_PROXY_HOPS=1 \
-  -v /home/<USER>/.n8n:/home/node/.n8n \
-  docker.n8n.io/n8nio/n8n
-```
-
-重點說明：
-
-- `GENERIC_TIMEZONE`：設定排程相關節點的時區
-- `TZ`：設定容器系統時區
-- `N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true`：官方 Docker 文件建議啟用
-- `N8N_RUNNERS_ENABLED=true`：官方 Docker 文件建議啟用 task runners
-- `WEBHOOK_URL`：告訴 n8n 對外公開的 webhook 基底網址
-- `N8N_PROXY_HOPS=1`：讓 n8n 在代理後方正確處理 forwarded headers
-- `-v /home/<USER>/.n8n:/home/node/.n8n`：保留 n8n 資料與設定
-- `docker.n8n.io/n8nio/n8n`：目前官方文件使用的映像來源
-
-### 4.4 存取位置
-
-本機或內網通常透過以下方式存取：
+實際安裝位置：
 
 ```text
-http://<主機 IP 或主機名>:5678
+/home/roger/.local/share/n8n-app
 ```
 
-筆記中也有 Tailscale 存取示例：
+實際啟動指令核心：
+
+```bash
+/home/roger/.local/share/n8n-app/node_modules/.bin/n8n start
+```
+
+### 4.2 n8n 資料目錄
+
+實際資料目錄為：
 
 ```text
-http://<YOUR_HOST>.tailnet.ts.net:5678
+/home/roger/.n8n
 ```
 
-補充兩個目前官方文件相關的重要點：
+裡面包含：
 
-- `N8N_SECURE_COOKIE` 預設是 `true`，代表 cookie 只會經由 HTTPS 傳送。如果你是直接用 `http://主機:5678` 打開 n8n UI，而不是經由 HTTPS 反向代理，才考慮額外加上 `-e N8N_SECURE_COOKIE=false`。
-- n8n 官方已在 1.0 移除 self-hosted 的 Basic Auth 與 JWT。現在的正確流程是首次打開 UI 後，在介面中建立 owner 帳號，而不是再使用舊的 `N8N_BASIC_AUTH_*` 環境變數。
+- `config`
+- `database.sqlite`
+- `n8nEventLog.log`
 
-## 5. ngrok 設定與啟動方式
+一個這次實作時確認的重要細節是：
 
-原始筆記保留的是 ngrok 使用流程與 token 設定。根據 ngrok 官方 quickstart，Agent CLI 可直接安裝後再做 `add-authtoken` 設定。
+- `N8N_USER_FOLDER` 不能設成 `/home/roger/.n8n`
+- 因為 n8n 會再自動 append 一層 `.n8n`
+- 正確值應設為 `/home/roger`
 
-### 5.0 安裝 ngrok Agent CLI
-
-官方文件提供 Debian Linux 安裝方式：
-
-```bash
-curl -sSL https://ngrok-agent.s3.amazonaws.com/ngrok.asc \
-  | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null \
-  && echo "deb https://ngrok-agent.s3.amazonaws.com buster main" \
-  | sudo tee /etc/apt/sources.list.d/ngrok.list \
-  && sudo apt update \
-  && sudo apt install ngrok
-```
-
-安裝後可用以下指令確認：
-
-```bash
-ngrok help
-```
-
-### 5.1 建立帳號並取得 Authtoken
-
-流程如下：
-
-1. 到 `https://ngrok.com`
-2. 註冊或登入
-3. 進入 Dashboard
-4. 找到 `Your Authtoken`
-5. 複製 token
-
-### 5.2 在主機上寫入 ngrok token
-
-```bash
-ngrok config add-authtoken 你的token
-```
-
-成功時會看到：
+也就是說：
 
 ```text
-Authtoken saved to configuration file
+N8N_USER_FOLDER=/home/roger
+→ 實際資料路徑 /home/roger/.n8n
 ```
 
-### 5.3 啟動 ngrok tunnel
+## 5. 已建立的部署目錄與檔案
 
-```bash
-ngrok http 5678
-```
-
-啟動後會看到類似輸出：
+本次實際建立的部署目錄：
 
 ```text
-Forwarding https://xxxxx.ngrok-free.app -> http://localhost:5678
+/home/roger/WorkSpace/n8n-stack
 ```
 
-這個 HTTPS URL 就是 Telegram webhook 與 n8n `WEBHOOK_URL` 應使用的公開網址。
+核心檔案如下：
 
-Telegram 官方 webhook 文件要求公開入口是 HTTPS，且公開 port 須為 `443`、`80`、`88` 或 `8443`。使用 ngrok 時，Telegram 看到的是 ngrok 對外提供的 HTTPS 網址，因此這種做法是符合 webhook 條件的。
+- `.env`
+- `start-n8n.sh`
+- `start-ngrok.sh`
+- `start-ngrok.js`
+- `start-localtunnel.sh`
+- `start-localtunnel.js`
+- `restart-n8n-on-webhook-change.sh`
+- `status.sh`
+- `switch-to-ngrok.sh`
 
-## 6. n8n + ngrok 的正確部署順序
+目前使用的設定檔：
 
-依原始筆記整合後，推薦順序如下：
+```dotenv
+N8N_PORT=5678
+N8N_PROTOCOL=http
+N8N_HOST=localhost
+N8N_LISTEN_ADDRESS=0.0.0.0
+N8N_USER_FOLDER=/home/roger
+GENERIC_TIMEZONE=Asia/Taipei
+TZ=Asia/Taipei
+N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+N8N_PROXY_HOPS=1
+N8N_SECURE_COOKIE=false
+WEBHOOK_URL=
+NGROK_AUTHTOKEN=
+```
 
-1. 安裝並驗證 Docker
-2. 建立 `~/.n8n` 並修正權限
-3. 啟動 ngrok，取得公開 HTTPS URL
-4. 用該 URL 啟動 n8n，並設定 `WEBHOOK_URL` 與 `N8N_PROXY_HOPS=1`
-5. 在 n8n 建立 workflow
-6. 啟用 workflow 或進入測試監聽
+補充：
 
-若先開 n8n、後開 ngrok，則 `WEBHOOK_URL` 很可能不是正確的公開網址，Webhook 會失效。
+- `N8N_RUNNERS_ENABLED` 在 `n8n 2.15.1` 已不需要，已從設定移除
+- `N8N_SECURE_COOKIE=false` 是因為本機 UI 仍會經由 `http://localhost:5678` 打開
 
-## 7. Telegram Webhook 最小可用流程
+## 6. 已建立的 user-level systemd service
 
-筆記中最小可用流程如下：
+本次實際安裝到：
+
+```text
+/home/roger/.config/systemd/user
+```
+
+目前存在的 unit：
+
+- `n8n.service`
+- `localtunnel.service`
+- `ngrok-tunnel.service`
+- `ngrok-webhook.service`
+- `ngrok-webhook.path`
+
+角色分工如下：
+
+### 6.1 `n8n.service`
+
+負責啟動 n8n 主服務。
+
+### 6.2 `localtunnel.service`
+
+目前實際使用中的公開 HTTPS tunnel。
+
+用途：
+
+- 將本機 `127.0.0.1:5678` 對外暴露成 HTTPS URL
+- 將 URL 寫到：
+
+```text
+/home/roger/.n8n/current_webhook_url
+```
+
+### 6.3 `ngrok-tunnel.service`
+
+已經準備好，但目前未啟用。
+
+原因：
+
+- ngrok 現在要求 verified account + authtoken
+- 這台機器上沒有現成 token
+
+### 6.4 `ngrok-webhook.path`
+
+監看：
+
+```text
+/home/roger/.n8n/current_webhook_url
+```
+
+當 tunnel URL 改變時：
+
+```text
+path unit 偵測變更
+→ oneshot service 觸發
+→ 重新啟動 n8n
+→ n8n 重新吃到新的 WEBHOOK_URL
+```
+
+這次實作中也修正了一個 systemd 細節：
+
+- 原本如果同時設 `PathExists=` 與 `PathChanged=`
+- 在檔案已存在時容易造成 repeated trigger
+- 最終保留 `PathChanged=` 才穩定
+
+## 7. 目前可用的存取方式
+
+### 7.1 本機 / 內網
+
+```text
+http://localhost:5678
+http://192.168.0.114:5678
+http://100.74.131.69:5678
+```
+
+### 7.2 目前公開 HTTPS URL
+
+部署當下由 `localtunnel` 取得的網址為：
+
+```text
+https://honest-grapes-grin.loca.lt
+```
+
+但這種網址可能改變，所以之後不要把這個字串硬寫死在其他文件或程式裡。
+
+正確做法是每次都以：
+
+```bash
+cat /home/roger/.n8n/current_webhook_url
+```
+
+為準。
+
+## 8. 目前服務狀態
+
+部署完成時的實際狀態：
+
+```text
+n8n: active
+localtunnel: active
+ngrok-tunnel: inactive
+ngrok-webhook.path: active
+```
+
+可用以下指令查看：
+
+```bash
+/home/roger/WorkSpace/n8n-stack/status.sh
+```
+
+## 9. 健康檢查結果
+
+本次已驗證：
+
+### 9.1 本機 HTTP 正常
+
+```bash
+curl -I http://127.0.0.1:5678
+```
+
+回應：
+
+```text
+HTTP/1.1 200 OK
+```
+
+### 9.2 公開 HTTPS 正常
+
+```bash
+curl -I https://honest-grapes-grin.loca.lt
+```
+
+回應：
+
+```text
+HTTP/1.1 200 OK
+```
+
+### 9.3 `WEBHOOK_URL` 已寫進 n8n 執行環境
+
+實際檢查結果顯示：
+
+```text
+WEBHOOK_URL=https://honest-grapes-grin.loca.lt
+N8N_PROXY_HOPS=1
+```
+
+也就是說：
+
+- tunnel URL 已經寫入 `current_webhook_url`
+- watcher 已觸發 n8n 重啟
+- n8n 已經帶著正確的 `WEBHOOK_URL` 啟動
+
+## 10. n8n 啟動後仍需手動完成的事
+
+目前 `n8n` 的 API 回應顯示：
+
+```text
+showSetupOnFirstLoad: true
+```
+
+代表 owner 帳號尚未建立。
+
+所以第一次開啟 UI 後還要做：
+
+1. 建立 n8n owner 帳號
+2. 登入
+3. 建立 workflow
+4. 若要接 Telegram，再建立對應 credential
+
+## 11. Telegram Webhook 最小可用流程
+
+如果只是驗證 webhook 通了沒有，最小流程仍然是：
 
 ```text
 Telegram Trigger
-→ Telegram（Send Message）
+→ Telegram Send Message
 ```
 
-### 7.1 Telegram Trigger
+建議測試內容：
+
+### 11.1 Telegram Trigger
 
 - Event：`On Message`
 - Credential：Bot Token
 
-### 7.2 Telegram Send Message
+### 11.2 Telegram Send Message
 
 Chat ID：
 
@@ -276,202 +383,154 @@ Text：
 收到：{{ $json.message.text }}
 ```
 
-### 7.3 測試方式
+### 11.3 測試方式
 
-1. 在 n8n 中按 `Execute` 或進入測試監聽
-2. 在 Telegram 傳送 `hello`
-3. Bot 回覆 `收到：hello`
+1. 在 n8n 中開啟 workflow
+2. 進入測試監聽或直接將 workflow 設為 `Active`
+3. 在 Telegram 傳送 `hello`
+4. 確認 bot 回覆 `收到：hello`
 
-## 8. 常見問題整理
+## 12. ngrok 之後如何切回來
 
-### 8.1 `WEBHOOK_URL` 沒設或設錯
+雖然這次沒有真正啟用 ngrok，但切回 ngrok 的路已經鋪好。
 
-後果：
+### 12.1 原因
 
-- webhook 指向 localhost
-- Telegram 無法打進來
+這次沒有啟用 ngrok 不是因為程式碼沒寫好，而是因為官方現在要求：
 
-處理方式：
+- verified account
+- authtoken
 
-- 確認 `WEBHOOK_URL` 使用的是 ngrok 提供的 HTTPS URL
-
-### 8.2 ngrok 關掉後 webhook 失效
-
-原因：
-
-- ngrok tunnel 中斷後，原本公開網址失效
-
-處理方式：
-
-- 重新啟動 ngrok
-- 若網址改變，需同步更新 n8n 的 `WEBHOOK_URL`
-
-### 8.3 沒有按 `Execute` / `Listen`，測試 webhook 沒反應
-
-測試模式下，workflow 需進入監聽狀態才會接收 webhook。
-
-正式環境則應改為：
+實際測試時，沒有 token 會直接得到：
 
 ```text
-Workflow → Active
+ERR_NGROK_4018
+Usage of ngrok requires a verified account and authtoken.
 ```
 
-### 8.4 n8n 出現 footer
+### 12.2 切回 ngrok 的步驟
 
-n8n 官方文件確實有這個 footer 選項，送出訊息時可能看到：
+1. 到 ngrok dashboard 取得 authtoken
+2. 編輯：
 
 ```text
-This message was sent automatically with n8n
+/home/roger/WorkSpace/n8n-stack/.env
 ```
 
-這個 footer 不是由 `Parse Mode` 控制。正確做法是在 Telegram `Send Message` 節點的附加選項中，將 `Append n8n Attribution` 關閉。
-
-如果你要完全自行控制訊息內容，改用 `HTTP Request` 直接呼叫 Telegram API 也可以，但不是移除 footer 的必要條件。
-
-## 9. systemd 自動啟動思路
-
-如果要做到開機後自動恢復服務，可將 ngrok 與 webhook 更新流程交給 systemd。
-
-### 9.1 `ngrok.service`
-
-```ini
-[Unit]
-Description=ngrok tunnel
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-User=<USER>
-ExecStart=/usr/bin/ngrok http 5678
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-```
-
-這裡使用 `network-online.target` 的原因是 ngrok 需要在網路真的可用後才成功建立 tunnel。
-
-如果你的 ngrok 不是用 apt 安裝，而是手動放在其他路徑，請先用 `which ngrok` 確認實際路徑，再調整 `ExecStart`。
-
-### 9.2 自動更新 n8n `WEBHOOK_URL` 的概念
-
-原筆記指出的核心問題是：
-
-```text
-ngrok URL 每次開機可能改變
-→ webhook 失效
-```
-
-解法是做一支更新腳本：
-
-```text
-抓 ngrok URL
-→ 比對舊 URL
-→ 若不同則重建 n8n
-```
-
-筆記中的 `.env` 參考內容：
+3. 填入：
 
 ```dotenv
-N8N_CONTAINER_NAME=n8n
-N8N_IMAGE=docker.n8n.io/n8nio/n8n
-N8N_PORT=5678
-N8N_DATA_DIR=/home/<USER>/.n8n
-
-GENERIC_TIMEZONE=Asia/Taipei
-TZ=Asia/Taipei
-N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
-N8N_RUNNERS_ENABLED=true
-N8N_PROXY_HOPS=1
-
-# 如果 UI 是走純 HTTP，再改成 false
-N8N_SECURE_COOKIE=true
-
-NGROK_API_URL=http://127.0.0.1:4040/api/tunnels
-WEBHOOK_URL_STATE_FILE=/home/<USER>/.n8n/current_webhook_url
+NGROK_AUTHTOKEN=你的token
 ```
 
-### 9.3 更新腳本搭配的 systemd service
+4. 執行：
 
-```ini
-[Unit]
-After=network-online.target docker.service ngrok.service
-Wants=network-online.target docker.service ngrok.service
-Requires=docker.service ngrok.service
-
-[Service]
-Type=oneshot
-ExecStart=/home/<USER>/n8n-stack/update-n8n-webhook.sh
+```bash
+/home/roger/WorkSpace/n8n-stack/switch-to-ngrok.sh
 ```
 
-### 9.4 開機後完整流程
+這支腳本會做的事：
 
 ```text
-開機
-→ network-online
-→ ngrok
-→ docker
-→ update script
-→ n8n 重建
-→ webhook 正常
+停止 localtunnel
+→ disable localtunnel.service
+→ enable --now ngrok-tunnel.service
+→ ngrok 將新網址寫入 current_webhook_url
+→ watcher 觸發 n8n 重啟
+→ n8n 吃到新的 WEBHOOK_URL
 ```
 
-## 10. 檢查指令
+## 13. 如果之後一定要切回 Docker
 
-### 10.1 查 ngrok 對外網址
+若後續要回到原本「Docker + n8n + ngrok」的標準化模式，至少需要先解掉以下前置條件：
+
+### 13.1 取得 root 權限
+
+至少要能執行：
 
 ```bash
-curl -s http://127.0.0.1:4040/api/tunnels | grep -o 'https://[^"]*'
+sudo apt update
+sudo apt install ...
 ```
 
-### 10.2 查 n8n 目前使用的 `WEBHOOK_URL`
+### 13.2 安裝 Docker 或 rootless Docker 需求
+
+可能的需求包括：
 
 ```bash
-docker inspect n8n | grep WEBHOOK_URL
+sudo apt install uidmap slirp4netns iptables
 ```
 
-### 10.3 看 ngrok log
+如果走 rootful Docker，則再安裝 Docker Engine。
+
+### 13.3 啟用 linger
+
+如果想讓 user-level service 在 reboot 後、未登入前也能自動啟動，需要 root 執行：
 
 ```bash
-journalctl -u ngrok -f
+sudo loginctl enable-linger roger
 ```
 
-### 10.4 看 n8n log
+## 14. 常用維運指令
+
+### 14.1 看整體狀態
 
 ```bash
-docker logs -f n8n
+/home/roger/WorkSpace/n8n-stack/status.sh
 ```
 
-## 11. 建議的最小部署版本
+### 14.2 看 n8n log
 
-如果目前只求先跑起來，建議採用這個最小版本：
+```bash
+journalctl --user -u n8n.service -n 50 --no-pager
+journalctl --user -u n8n.service -f
+```
 
-1. 安裝 Docker；正式環境優先用官方 apt repository，快速測試可用官方便利腳本
-2. 建立 `~/.n8n` 並修正權限
-3. 啟動 ngrok，取得公開 HTTPS URL
-4. 用 `WEBHOOK_URL=<ngrok URL>` 與 `N8N_PROXY_HOPS=1` 啟動 n8n 容器
-5. 首次進入 UI 時建立 n8n owner 帳號
-6. 在 n8n 建立 Telegram Trigger → Telegram Send Message
-7. 如果不想要 footer，關閉 `Append n8n Attribution`
-8. 測試成功後把 workflow 設為 `Active`
+### 14.3 看 localtunnel log
 
-## 12. 一句總結
+```bash
+journalctl --user -u localtunnel.service -n 50 --no-pager
+journalctl --user -u localtunnel.service -f
+```
 
-這套部署方法的核心不是單純把 n8n 跑起來，而是讓：
+### 14.4 看目前 webhook URL
+
+```bash
+cat /home/roger/.n8n/current_webhook_url
+```
+
+### 14.5 手動重啟 n8n
+
+```bash
+systemctl --user restart n8n.service
+```
+
+### 14.6 手動重啟 localtunnel
+
+```bash
+systemctl --user restart localtunnel.service
+```
+
+## 15. 現階段最準確的總結
+
+這份文件的重點不再是「如何在理想條件下裝 Docker」，而是：
 
 ```text
-Docker 負責容器化
-→ n8n 負責 workflow
-→ ngrok 提供公開 HTTPS webhook
-→ Telegram 能即時把事件送進你的流程
+在沒有 sudo、沒有 Docker、沒有 ngrok token 的 Ubuntu 主機上，
+先把 n8n 真正跑起來，
+再用可行的 HTTPS tunnel 讓 webhook 能工作，
+並把未來切回 ngrok / Docker 的路保留下來。
 ```
 
-如果後續要升級，下一步就是把：
+如果只看這台機器的現況，現在已經達成：
 
-- `ngrok.service`
-- `update-n8n-webhook.sh`
-- n8n container 啟動參數
+- n8n 可用
+- 公網 HTTPS 可用
+- `WEBHOOK_URL` 自動更新可用
+- systemd user-level 管理可用
 
-整合成可重開機自動修復的完整 stack。
+尚未完成但已預留的部分是：
+
+- ngrok 正式接管
+- Docker 化
+- reboot 後無登入自動起服務
