@@ -254,19 +254,16 @@ path unit 偵測變更
 
 ```text
 http://localhost:5678
-http://192.168.0.114:5678
-http://100.74.131.69:5678
+http://<LAN-IP>:5678
+http://<TAILSCALE-OR-VPN-IP>:5678
 ```
 
 ### 7.2 目前公開 HTTPS URL
 
-部署當下由 `localtunnel` 取得的網址為：
+當下的公開 HTTPS URL 不建議直接寫死在 repo，因為：
 
-```text
-https://honest-grapes-grin.loca.lt
-```
-
-但這種網址可能改變，所以之後不要把這個字串硬寫死在其他文件或程式裡。
+- tunnel URL 可能改變
+- 若 repo 會對外共享，保留 live endpoint 沒必要
 
 正確做法是每次都以：
 
@@ -312,7 +309,7 @@ HTTP/1.1 200 OK
 ### 9.2 公開 HTTPS 正常
 
 ```bash
-curl -I https://honest-grapes-grin.loca.lt
+curl -I "$(cat /home/roger/.n8n/current_webhook_url)"
 ```
 
 回應：
@@ -326,7 +323,7 @@ HTTP/1.1 200 OK
 實際檢查結果顯示：
 
 ```text
-WEBHOOK_URL=https://honest-grapes-grin.loca.lt
+WEBHOOK_URL=<current public HTTPS URL>
 N8N_PROXY_HOPS=1
 ```
 
