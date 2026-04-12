@@ -144,7 +144,7 @@ N8N_USER_FOLDER=/home/roger
 repo 內目前只保留一次性部署腳本：
 
 ```text
-/home/roger/WorkSpace/AI_Agent_setup_log/scripts
+/home/roger/WorkSpace/AI_Agent_minipc_log/scripts
 ```
 
 主要使用：
@@ -172,7 +172,7 @@ repo 內目前只保留一次性部署腳本：
 部署或同步 runtime 檔案時，執行：
 
 ```text
-/home/roger/WorkSpace/AI_Agent_setup_log/scripts/deploy-n8n-runtime.sh
+/home/roger/WorkSpace/AI_Agent_minipc_log/scripts/deploy-n8n-runtime.sh
 ```
 
 執行期設定檔位於：
