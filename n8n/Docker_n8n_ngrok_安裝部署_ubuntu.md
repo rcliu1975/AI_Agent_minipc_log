@@ -141,10 +141,20 @@ N8N_USER_FOLDER=/home/roger
 
 ## 5. 已建立的部署目錄與檔案
 
-目前實際使用的腳本目錄：
+repo 內目前只保留一次性部署腳本：
 
 ```text
 /home/roger/WorkSpace/AI_Agent_setup_log/scripts
+```
+
+主要使用：
+
+- `deploy-n8n-runtime.sh`
+
+真正提供給 service 使用的 runtime 目錄為：
+
+```text
+/home/roger/n8n-stack
 ```
 
 核心檔案如下：
@@ -159,10 +169,16 @@ N8N_USER_FOLDER=/home/roger
 - `status.sh`
 - `switch-to-ngrok.sh`
 
-執行期設定檔已移到 repo 外：
+部署或同步 runtime 檔案時，執行：
 
 ```text
-/home/roger/.config/n8n-stack/.env
+/home/roger/WorkSpace/AI_Agent_setup_log/scripts/deploy-n8n-runtime.sh
+```
+
+執行期設定檔位於：
+
+```text
+/home/roger/n8n-stack/.env
 ```
 
 目前使用的設定如下：
@@ -293,7 +309,7 @@ ngrok-webhook.path: active
 可用以下指令查看：
 
 ```bash
-/home/roger/WorkSpace/AI_Agent_setup_log/scripts/status.sh
+/home/roger/n8n-stack/status.sh
 ```
 
 ## 9. 健康檢查結果
@@ -417,7 +433,7 @@ Usage of ngrok requires a verified account and authtoken.
 2. 編輯：
 
 ```text
-/home/roger/.config/n8n-stack/.env
+/home/roger/n8n-stack/.env
 ```
 
 3. 填入：
@@ -431,7 +447,7 @@ NGROK_AUTHTOKEN=
 4. 執行：
 
 ```bash
-/home/roger/WorkSpace/AI_Agent_setup_log/scripts/switch-to-ngrok.sh
+/home/roger/n8n-stack/switch-to-ngrok.sh
 ```
 
 這支腳本會做的事：
@@ -481,7 +497,7 @@ sudo loginctl enable-linger roger
 ### 14.1 看整體狀態
 
 ```bash
-/home/roger/WorkSpace/AI_Agent_setup_log/scripts/status.sh
+/home/roger/n8n-stack/status.sh
 ```
 
 ### 14.2 看 n8n log
