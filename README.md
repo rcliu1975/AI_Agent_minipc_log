@@ -1,6 +1,7 @@
 # AI_Agent_minipc_log
 
 這個 repo 用來獨立保存 MiniPC 與 AI Agent 相關的安裝、部署與操作筆記。
+前身名稱為 `AI_Agent_setup_log`；目前已統一以 `AI_Agent_minipc_log` 為正式 repo 名稱。
 
 目前收錄：
 
@@ -23,3 +24,4 @@ AI_Agent_minipc_log/
 - `n8n/Docker_n8n_ngrok_安裝部署_ubuntu.md` 整理 Docker、n8n、ngrok 的部署步驟與 Ubuntu 實機校正內容。
 
 目前這個 repo 是從 `My-Notes` 拆出的獨立版本，方便後續單獨維護與發布。
+若你在舊筆記、舊分支名稱或歷史說明中看到 `AI_Agent_setup_log`，都應視為目前這個 `AI_Agent_minipc_log` repo。
