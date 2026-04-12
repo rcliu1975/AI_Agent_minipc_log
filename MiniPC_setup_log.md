@@ -41,7 +41,17 @@ Date: 2026-04-11
 - 讀取並重整 `AI_Agent_setup_log/n8n/Docker_n8n_ngrok_安裝部署_ubuntu.md`，改寫成符合本機實況的 Ubuntu 修正版。
 - 確認本機 `sudo` 需要密碼、`docker` 尚未安裝，且 rootless Docker 需要的 `newuidmap` / `slirp4netns` 不存在，因此這次未採 Docker 路線。
 - 改用 user-level 方案部署 `n8n 2.15.1`，安裝位置為 `/home/roger/.local/share/n8n-app`，資料目錄為 `/home/roger/.n8n`。
-- 建立 `/home/roger/WorkSpace/n8n-stack`，放置 `.env`、啟動腳本、`status.sh`、`switch-to-ngrok.sh` 與對應的 systemd user service。
+- repo `scripts/` 現在只保留一次性部署腳本，主要使用 `/home/roger/WorkSpace/AI_Agent_setup_log/scripts/deploy-n8n-runtime.sh` 來建立或同步 runtime 檔案。
+- n8n service 會用到的 runtime scripts 與設定檔已集中在 `/home/roger/n8n-stack`，systemd user service 也已改指向該目錄。
+- 舊的 `/home/roger/.config/n8n-stack/.env` 複本已清除，避免和 `/home/roger/n8n-stack/.env` 並存造成混淆。
 - 已啟用 `n8n.service`、`localtunnel.service`、`ngrok-webhook.path`；目前 `ngrok-tunnel.service` 保留但未啟用，因為機器上沒有 `NGROK_AUTHTOKEN`。
 - 已驗證本機 `http://127.0.0.1:5678` 與當下公開 HTTPS URL 均回 `200 OK`，且 `WEBHOOK_URL` 已由 watcher 自動寫回 n8n 環境。
 - 目前仍需後續在 UI 建立 n8n owner 帳號；另外 `loginctl show-user roger -p Linger` 為 `no`，表示 reboot 後未登入前不保證自動起服務。
+- 已完成重新調整：repo `scripts/` 只放一次性部署腳本，service 依賴檔案則放在 `/home/roger/n8n-stack`。
+
+## 2026-04-12 Agent Rules
+
+- 更新 `agent_rule.md` 與 `keep-going-prompt.md`。
+- 新增 repo 內的 `scripts/` 目錄，供非 repo / 非 GitHub 操作腳本使用；後續相關腳本需同步記錄於本檔。
+- 依目前規則執行 repo 安全掃描；未發現實際 secret、private key 或 live private endpoint。
+- 將 `n8n/Docker_n8n_ngrok_安裝部署_ubuntu.md` 中的 `NGROK_AUTHTOKEN` 文件範例改為空值佔位，避免看起來像真實憑證。
