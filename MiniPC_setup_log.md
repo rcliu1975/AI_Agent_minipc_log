@@ -50,3 +50,5 @@ Date: 2026-04-11
 
 - 更新 `agent_rule.md` 與 `keep-going-prompt.md`。
 - 新增 repo 內的 `scripts/` 目錄，供非 repo / 非 GitHub 操作腳本使用；後續相關腳本需同步記錄於本檔。
+- 依目前規則執行 repo 安全掃描；未發現實際 secret、private key 或 live private endpoint。
+- 將 `n8n/Docker_n8n_ngrok_安裝部署_ubuntu.md` 中的 `NGROK_AUTHTOKEN` 文件範例改為空值佔位，避免看起來像真實憑證。

@@ -417,8 +417,10 @@ Usage of ngrok requires a verified account and authtoken.
 3. 填入：
 
 ```dotenv
-NGROK_AUTHTOKEN=你的token
+NGROK_AUTHTOKEN=
 ```
+
+再把你自己的 ngrok authtoken 填在等號右側，不要把實際值寫回 repo。
 
 4. 執行：
 
