@@ -55,3 +55,10 @@ Date: 2026-04-11
 - 新增 repo 內的 `scripts/` 目錄，供非 repo / 非 GitHub 操作腳本使用；後續相關腳本需同步記錄於本檔。
 - 依目前規則執行 repo 安全掃描；未發現實際 secret、private key 或 live private endpoint。
 - 將 `n8n/Docker_n8n_ngrok_安裝部署_ubuntu.md` 中的 `NGROK_AUTHTOKEN` 文件範例改為空值佔位，避免看起來像真實憑證。
+
+## 2026-04-12 Repo Sync Check
+
+- 確認 `AI_Agent_minipc_log` 本地 `main` 已 fast-forward 到 `origin/main`，目前對齊 commit `c469b8a`。
+- 確認本地 `codex/rename-local-repo-dir` upstream 已刪除，但其內容與 `origin/main` 相同；為避免額外破壞性操作，這次未刪本地 branch。
+- 修正 `README.md` 內殘留的 repo 名稱 `AI_Agent_setup_log` 與過時的 n8n 文件連結，統一為 `AI_Agent_minipc_log` 與目前實際檔名。
+- 確認 GitHub 上 `rcliu1975/youtube_post_repeater` 存在，但本機 `/home/roger` 下沒有該 repo clone，因此本次僅完成遠端存在性確認，沒有本地同步動作。
