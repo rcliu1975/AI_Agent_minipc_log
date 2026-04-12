@@ -38,10 +38,10 @@ Date: 2026-04-11
 
 ## 2026-04-12 n8n / Webhook
 
-- 讀取並重整 `AI_Agent_setup_log/n8n/Docker_n8n_ngrok_安裝部署_ubuntu.md`，改寫成符合本機實況的 Ubuntu 修正版。
+- 讀取並重整 `AI_Agent_minipc_log/n8n/Docker_n8n_ngrok_安裝部署_ubuntu.md`，改寫成符合本機實況的 Ubuntu 修正版。
 - 確認本機 `sudo` 需要密碼、`docker` 尚未安裝，且 rootless Docker 需要的 `newuidmap` / `slirp4netns` 不存在，因此這次未採 Docker 路線。
 - 改用 user-level 方案部署 `n8n 2.15.1`，安裝位置為 `/home/roger/.local/share/n8n-app`，資料目錄為 `/home/roger/.n8n`。
-- repo `scripts/` 現在只保留一次性部署腳本，主要使用 `/home/roger/WorkSpace/AI_Agent_setup_log/scripts/deploy-n8n-runtime.sh` 來建立或同步 runtime 檔案。
+- repo `scripts/` 現在只保留一次性部署腳本，主要使用 `/home/roger/WorkSpace/AI_Agent_minipc_log/scripts/deploy-n8n-runtime.sh` 來建立或同步 runtime 檔案。
 - n8n service 會用到的 runtime scripts 與設定檔已集中在 `/home/roger/n8n-stack`，systemd user service 也已改指向該目錄。
 - 舊的 `/home/roger/.config/n8n-stack/.env` 複本已清除，避免和 `/home/roger/n8n-stack/.env` 並存造成混淆。
 - 已啟用 `n8n.service`、`localtunnel.service`、`ngrok-webhook.path`；目前 `ngrok-tunnel.service` 保留但未啟用，因為機器上沒有 `NGROK_AUTHTOKEN`。
