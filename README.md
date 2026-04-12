@@ -26,7 +26,7 @@ AI_Agent_minipc_log/
 
 ## MiniPC Setup Log
 
-以下內容為原 `MiniPC_setup_log.md` 的整併版本，方便直接從 README 查閱目前的建置與同步狀態。
+以下內容為原獨立 setup log 的整併版本，方便直接從 README 查閱目前的建置與同步狀態。
 
 Date: 2026-04-11
 
