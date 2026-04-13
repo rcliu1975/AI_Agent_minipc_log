@@ -90,3 +90,24 @@ Date: 2026-04-11
 - 確認本地 `codex/rename-local-repo-dir` upstream 已刪除，但其內容與 `origin/main` 相同；為避免額外破壞性操作，這次未刪本地 branch。
 - 修正 `README.md` 內殘留的 repo 名稱 `AI_Agent_setup_log` 與過時的 n8n 文件連結，統一為 `AI_Agent_minipc_log` 與目前實際檔名。
 - 已將 `youtube_post_repeater` clone 到 `/home/roger/WorkSpace/youtube_post_repeater`，並確認本地 `main` 與 `origin/main` 對齊於 commit `12993bf`。
+
+### 2026-04-12 youtube-post-worker
+
+- 已將 `youtube-post-worker` clone 到 `/home/roger/WorkSpace/youtube-post-worker`，並確認 repo 初始狀態只有 `README.md` 與 `plan.md` 規劃文件。
+- 依目前 agent rule 先做 repo 安全掃描；未發現實際 secret、private key 或危險腳本，但發現尚未建立 `.gitignore`、`.env.example`、runtime 資料夾隔離，存在日後誤提交 debug/output/SQLite 檔的風險。
+- 已補上 `pyproject.toml`、`.gitignore`、`.env.example`、`docs/architecture.md`，並建立 `worker/`、`tests/`、`scripts/`、`data/debug`、`data/out`、`data/media` 骨架。
+- 已實作第一版核心模組：`worker/cli.py`、`models.py`、`state.py`、`fetcher.py`、`parser.py`、`output.py`、`downloader.py`、`sender.py`、`utils.py`。
+- CLI 目前支援 `init-db`、`run`、`debug-fetch`、`debug-parse`、`list-new`；`run` 可用 saved HTML mock file 做 end-to-end 驗證，並會輸出 JSON payload 與 SQLite 去重結果。
+- 已新增 `scripts/run_once.sh`、`scripts/install_cron.sh`、`scripts/install_systemd.sh`，並同步在 repo `README.md` 記錄其用途與基本使用說明。
+- 已加入 `tests/fixtures/sample_community.html` 與 3 個 `unittest` 測試，涵蓋 parser、state 與 CLI mock run。
+- 已本地驗證：`python3 -m unittest discover -s tests -v` 全數通過；mock `run` 會先輸出 2 筆新文、第二次重跑則正確回傳無新文。
+- 已用真實頻道 `https://www.youtube.com/@yutinghaofinance/community` 做 live 驗證；初版 parser 會混入非目標作者內容，因此已改為依 `authorEndpoint.browseEndpoint.canonicalBaseUrl` 過濾，只保留目標頻道自己的 community 貼文。
+- 已同步修正圖片抽取邏輯，不再把同一張圖的多個縮圖尺寸全部寫入 payload，而是保留每組 thumbnails 中解析度最高的一個 URL。
+- live 驗證結果：重新解析保存的 raw HTML 後，共得到 11 篇屬於 `游庭皓的財經皓角`、`UC0lbAQVpenvfA2QqzsRtL_g` 的貼文；直接用 live URL 連跑兩次 `run`，第一次回傳 `10` 並輸出 11 個 payload，第二次回傳 `0`，證明 SQLite 去重生效。
+- 已建立 branch `codex/bootstrap-youtube-worker`，commit `b0c6c25` (`Bootstrap worker and validate live parsing`)；由於本機沒有 `gh` 且 origin push URL 原本是 HTTPS，已只在此 repo 將 `origin` 的 push URL 改為 SSH 後成功推送。
+- 已建立 draft PR `#2`：`[codex] Bootstrap worker and validate live YouTube parsing`，連結為 `https://github.com/rcliu1975/youtube-post-worker/pull/2`。
+- 已追加 follow-up commit `851dcf2` (`Harden channel author matching`) 到同一個 PR；修正 parser 在 `/channel/UC.../community` 形式 URL 下，可能因 canonical path 與 handle path 不同而誤排除正確貼文的問題。
+- 已補測試覆蓋 `https://www.youtube.com/channel/UC123456789/community` 這類 channel-id URL，並重新執行 `python3 -m unittest discover -s tests -v`，4 個測試全數通過。
+- 2026-04-13 持續加固 scraper 維運性：開始補 `fetch` 失敗時的 debug 保留機制，目標是在 403/429/異常 HTML 回應下，也能把失敗回應本體存到 `data/debug/` 供後續分析。
+- 本輪已修改 `worker/fetcher.py`、`worker/cli.py` 與 `tests/test_cli.py`，新增 `FetchError` 攜帶 `response_text` / `debug_path` 的設計，以及 `debug-fetch` 失敗時應寫出 `*fetch-error.html` 的測試。
+- 測試過程中發現一個尚未完成的修正：`debug-fetch` subcommand 的 `Namespace` 沒有 `mock_file` 欄位，導致新的 `_load_html()` 路徑在測試中出現 `AttributeError`。本次先中止進一步修改，待下一輪補成 `getattr(args, "mock_file", None)` 後再重跑測試並推回 PR。
