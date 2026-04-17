@@ -58,3 +58,18 @@
 - `https://www.youtube.com/channel/UC0lbAQVpenvfA2QqzsRtL_g/community` also parses to the same 11 posts.
 - `run --download-media` successfully wrote 11 payload files and 11 local media files under `/tmp/youtube-post-worker-m7-media-fresh/`.
 - Scheduler validation found a real portability bug: local `systemd-escape` does not support `--quote`, so `scripts/install_systemd.sh` was updated to use portable unit-safe escaping instead.
+
+2026-04-17 21:00 +08:00
+- Performed a deeper review of `/home/roger/WorkSpace/youtube-post-worker`, focusing on sender integration, fetch/downloader/scheduler safety boundaries, and current test coverage.
+- Confirmed the full `youtube-post-worker` test suite passed with 18 tests after sender-related changes.
+- Identified two concrete issues in the sender path:
+- sender integration lacked dedicated tests
+- partial delivery could resend already delivered posts on the next `run`
+- Corrected this by adding a SQLite delivery journal and changing the CLI flow so new posts are persisted first, then only still-undelivered sender items are retried, with each successful delivery recorded immediately.
+- Added sender/state/CLI regression tests covering sender config parsing, n8n webhook URL validation, and partial-delivery retry behavior.
+- Updated `youtube-post-worker/.env.example` and `README.md` so sender usage matches the actual CLI behavior.
+- Committed `d08f384 Add reliable sender delivery tracking` and tagged that state as `phase2-sender-reliable`.
+- Replaced the previous untracked repo-root helper intent with a tracked `run.sh` wrapper, documented its usage, and verified:
+- `bash -n run.sh scripts/run_once.sh scripts/install_cron.sh scripts/install_systemd.sh`
+- No new concrete safety findings were introduced in this pass; remaining risks were still the known parser fragility and synchronous sender design.
+- Opened `youtube-post-worker` draft PR `#5`: `[codex] Add reliable sender delivery tracking and root run helper`.

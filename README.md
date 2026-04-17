@@ -133,3 +133,14 @@ Date: 2026-04-11
 - `https://www.youtube.com/channel/UC0lbAQVpenvfA2QqzsRtL_g/community` 也可 live 解析出同樣的 11 篇貼文。
 - `run --download-media` 已實測成功，於 `/tmp/youtube-post-worker-m7-media-fresh/` 產生 11 個 payload 與 11 個本地媒體檔。
 - 排程腳本驗證期間發現一個實際相容性問題：本機 `systemd-escape` 不支援 `--quote`。已修正 `scripts/install_systemd.sh` 改採腳本內的 portable escaping，並用 fake `systemctl` 加 `systemd-analyze verify` 確認產生的 user unit 可通過語法驗證。
+- 同日後續 review 與修補摘要：
+- 重新檢視 `youtube-post-worker` 的 sender 整合、fetch/downloader/scheduler 安全邊界與測試覆蓋，確認當時完整測試為 18 個且全數通過。
+- 明確發現 sender 原本缺少獨立測試，且部分成功後會在下次 `run` 重送已成功送出的貼文；也發現 root docs 已落後，仍把訊息投遞描述成未來工作。
+- 已補上 SQLite delivery journal，調整 CLI 流程為先持久化新貼文、再只補送尚未成功投遞的項目，並在每篇成功後立刻記錄 delivery 狀態。
+- 已新增 sender/state/CLI regression tests，補齊 sender config、n8n URL 驗證與 partial-delivery retry 行為。
+- 已同步更新 `youtube-post-worker/.env.example` 與 `README.md`，使 sender 用法與目前 CLI 行為一致。
+- 已提交 `d08f384 Add reliable sender delivery tracking`，並建立 tag `phase2-sender-reliable`。
+- 原本未追蹤的 repo root `work.sh` 已整理為正式版 `run.sh` wrapper，支援預設頻道、sender 環境變數與額外 CLI 參數轉送，並已更新 repo `README.md`。
+- 已驗證 `bash -n run.sh scripts/run_once.sh scripts/install_cron.sh scripts/install_systemd.sh`。
+- 這輪 review 沒有新增具體安全 findings；剩餘風險仍是既知的 YouTube parser 脆弱性與同步 sender 設計。
+- 已建立 `youtube-post-worker` draft PR `#5`：`[codex] Add reliable sender delivery tracking and root run helper`。
