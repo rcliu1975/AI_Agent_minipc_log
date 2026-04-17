@@ -91,54 +91,8 @@ Date: 2026-04-11
 
 ### 2026-04-12 youtube-post-worker
 
-- 已將 `youtube-post-worker` clone 到 `/home/roger/WorkSpace/youtube-post-worker`，並確認 repo 初始狀態只有 `README.md` 與 `plan.md` 規劃文件。
-- 依目前 agent rule 先做 repo 安全掃描；未發現實際 secret、private key 或危險腳本，但發現尚未建立 `.gitignore`、`.env.example`、runtime 資料夾隔離，存在日後誤提交 debug/output/SQLite 檔的風險。
-- 已補上 `pyproject.toml`、`.gitignore`、`.env.example`、`docs/architecture.md`，並建立 `worker/`、`tests/`、`scripts/`、`data/debug`、`data/out`、`data/media` 骨架。
-- 已實作第一版核心模組：`worker/cli.py`、`models.py`、`state.py`、`fetcher.py`、`parser.py`、`output.py`、`downloader.py`、`sender.py`、`utils.py`。
-- CLI 目前支援 `init-db`、`run`、`debug-fetch`、`debug-parse`、`list-new`；`run` 可用 saved HTML mock file 做 end-to-end 驗證，並會輸出 JSON payload 與 SQLite 去重結果。
-- 已新增 `scripts/run_once.sh`、`scripts/install_cron.sh`、`scripts/install_systemd.sh`，並同步在 repo `README.md` 記錄其用途與基本使用說明。
-- 已加入 `tests/fixtures/sample_community.html` 與 3 個 `unittest` 測試，涵蓋 parser、state 與 CLI mock run。
-- 已本地驗證：`python3 -m unittest discover -s tests -v` 全數通過；mock `run` 會先輸出 2 筆新文、第二次重跑則正確回傳無新文。
-- 已用真實頻道 `https://www.youtube.com/@yutinghaofinance/community` 做 live 驗證；初版 parser 會混入非目標作者內容，因此已改為依 `authorEndpoint.browseEndpoint.canonicalBaseUrl` 過濾，只保留目標頻道自己的 community 貼文。
-- 已同步修正圖片抽取邏輯，不再把同一張圖的多個縮圖尺寸全部寫入 payload，而是保留每組 thumbnails 中解析度最高的一個 URL。
-- live 驗證結果：重新解析保存的 raw HTML 後，共得到 11 篇屬於 `游庭皓的財經皓角`、`UC0lbAQVpenvfA2QqzsRtL_g` 的貼文；直接用 live URL 連跑兩次 `run`，第一次回傳 `10` 並輸出 11 個 payload，第二次回傳 `0`，證明 SQLite 去重生效。
-- 已建立 branch `codex/bootstrap-youtube-worker`，commit `b0c6c25` (`Bootstrap worker and validate live parsing`)；由於本機沒有 `gh` 且 origin push URL 原本是 HTTPS，已只在此 repo 將 `origin` 的 push URL 改為 SSH 後成功推送。
-- 已建立 draft PR `#2`：`[codex] Bootstrap worker and validate live YouTube parsing`，連結為 `https://github.com/rcliu1975/youtube-post-worker/pull/2`。
-- 已追加 follow-up commit `851dcf2` (`Harden channel author matching`) 到同一個 PR；修正 parser 在 `/channel/UC.../community` 形式 URL 下，可能因 canonical path 與 handle path 不同而誤排除正確貼文的問題。
-- 已補測試覆蓋 `https://www.youtube.com/channel/UC123456789/community` 這類 channel-id URL，並重新執行 `python3 -m unittest discover -s tests -v`，4 個測試全數通過。
-- 2026-04-13 持續加固 scraper 維運性：開始補 `fetch` 失敗時的 debug 保留機制，目標是在 403/429/異常 HTML 回應下，也能把失敗回應本體存到 `data/debug/` 供後續分析。
-- 本輪已修改 `worker/fetcher.py`、`worker/cli.py` 與 `tests/test_cli.py`，新增 `FetchError` 攜帶 `response_text` / `debug_path` 的設計，以及 `debug-fetch` 失敗時應寫出 `*fetch-error.html` 的測試。
-- 測試過程中發現一個尚未完成的修正：`debug-fetch` subcommand 的 `Namespace` 沒有 `mock_file` 欄位，導致新的 `_load_html()` 路徑在測試中出現 `AttributeError`。本次先中止進一步修改，待下一輪補成 `getattr(args, "mock_file", None)` 後再重跑測試並推回 PR。
-- 2026-04-17 重新聚焦 `youtube-post-worker` 並做安全檢查；先讀 `README.md`、`plan.md`、`worker/cli.py`、`worker/fetcher.py`、`worker/downloader.py`、scheduler 安裝腳本與現有 safety tests，再執行 `python3 -m unittest discover -s tests -v`，確認當下 10 個測試全綠。
-- 本輪發現一個實際 SSRF 缺口：`worker/downloader.py` 原本只會拒絕字面上的私有/回環 IP；若圖片 URL 使用一般 hostname，但 DNS 解析結果指向內網位址，舊邏輯仍可能放行。
-- 已修補 `worker/downloader.py`：媒體下載驗證現在會對非 IP hostname 做 `socket.getaddrinfo()` 解析；只要任何解析結果落在 private、loopback、link-local、multicast、reserved 或 unspecified 位址，就直接拒絕下載。
-- 已新增 `tests/test_safety.py::test_download_skips_hostname_resolving_to_private_ip` 回歸測試，覆蓋「hostname 經 DNS 解析到 `127.0.0.1`」的情境，避免之後再退化回只檢查字面 IP。
-- 修補後已重新執行 `python3 -m unittest discover -s tests -v`，目前 11 個測試全數通過；這輪沒有看到新的 secret、private key、任意抓取器或 scheduler 注入問題。
-- 本輪操作紀錄補充：實際使用上，某些 command line 行為只有在啟動時加上 `--dangerously-bypass-approvals-and-sandbox` 才會生效；單靠一般 CLI 啟動時，會受 approval/sandbox 限制影響而看起來像是「指令沒作用」。
-- 使用備註：`--dangerously-bypass-approvals-and-sandbox` 本質上是直接繞過批准與 sandbox 保護，應只在確認環境與命令安全時使用；若未加此 flag 時失敗，應優先判斷為權限模型限制，而不是 repo 指令本身異常。
-- 已在 `/home/roger/WorkSpace/youtube-post-worker` 新增 `AGENTS.md`，要求後續 agent 先檢查 `README.md`、`plan.md`、`HANDOFF.md`，再開始改碼或改文件，並持續把工作記錄寫回 `AI_Agent_minipc_log`。
-- 文件一致性補正：已同步修正 `youtube-post-worker/README.md`、`youtube-post-worker/HANDOFF.md`、`youtube-post-worker/plan.md`，讓下載安全描述反映最新實作，明確包含「hostname 經 DNS 解析後若落到 private/loopback 等位址也會拒絕」。
-- handoff 狀態補正：已把 `HANDOFF.md` 內過時的「工作樹乾淨」改成提醒接手前先跑 `git status --short --branch`，並把測試數量由 10 更新為 11。
-- 持續完成 `youtube-post-worker` 的 `M7: Phase 1 release hardening`：已補強 `worker/downloader.py`，新增媒體回應 `Content-Type` 必須為 `image/*` 的驗證，並對暫時性下載失敗做有限次數 retry。
-- 已補強 `worker/parser.py`：若 YouTube community 頁回傳的是「無法造訪這個社群 / community unavailable」空狀態，而非貼文資料，現在會丟出明確的 parse error，避免只看到泛用解析失敗。
-- 已新增回歸測試覆蓋：
-- `tests/test_safety.py::test_download_skips_non_image_content_type`
-- `tests/test_safety.py::test_download_retries_transient_failure_then_succeeds`
-- `tests/test_parser.py::test_parse_raises_specific_error_for_unavailable_community`
-- 重新執行 `python3 -m unittest discover -s tests -v` 後，目前共有 14 個測試全數通過。
-- M7 live 驗證已補齊：
-- `https://www.youtube.com/@yutinghaofinance/community` 在 fresh state DB 下仍可抓出並輸出 11 篇新貼文。
-- `https://www.youtube.com/channel/UC0lbAQVpenvfA2QqzsRtL_g/community` 也可 live 解析出同樣的 11 篇貼文。
-- `run --download-media` 已實測成功，於 `/tmp/youtube-post-worker-m7-media-fresh/` 產生 11 個 payload 與 11 個本地媒體檔。
-- 排程腳本驗證期間發現一個實際相容性問題：本機 `systemd-escape` 不支援 `--quote`。已修正 `scripts/install_systemd.sh` 改採腳本內的 portable escaping，並用 fake `systemctl` 加 `systemd-analyze verify` 確認產生的 user unit 可通過語法驗證。
-- 同日後續 review 與修補摘要：
-- 重新檢視 `youtube-post-worker` 的 sender 整合、fetch/downloader/scheduler 安全邊界與測試覆蓋，確認當時完整測試為 18 個且全數通過。
-- 明確發現 sender 原本缺少獨立測試，且部分成功後會在下次 `run` 重送已成功送出的貼文；也發現 root docs 已落後，仍把訊息投遞描述成未來工作。
-- 已補上 SQLite delivery journal，調整 CLI 流程為先持久化新貼文、再只補送尚未成功投遞的項目，並在每篇成功後立刻記錄 delivery 狀態。
-- 已新增 sender/state/CLI regression tests，補齊 sender config、n8n URL 驗證與 partial-delivery retry 行為。
-- 已同步更新 `youtube-post-worker/.env.example` 與 `README.md`，使 sender 用法與目前 CLI 行為一致。
-- 已提交 `d08f384 Add reliable sender delivery tracking`，並建立 tag `phase2-sender-reliable`。
-- 原本未追蹤的 repo root `work.sh` 已整理為正式版 `run.sh` wrapper，支援預設頻道、sender 環境變數與額外 CLI 參數轉送，並已更新 repo `README.md`。
-- 已驗證 `bash -n run.sh scripts/run_once.sh scripts/install_cron.sh scripts/install_systemd.sh`。
-- 這輪 review 沒有新增具體安全 findings；剩餘風險仍是既知的 YouTube parser 脆弱性與同步 sender 設計。
-- 已建立 `youtube-post-worker` draft PR `#5`：`[codex] Add reliable sender delivery tracking and root run helper`。
+- 建立並逐步補齊 `youtube-post-worker`：完成 Python package 骨架、CLI、SQLite 去重、JSON 輸出、排程腳本與基本測試。
+- 完成 live parsing 與資料品質修正：針對目標頻道作者過濾、圖片抽取去重、`/channel/UC.../community` 相容性做修補，並建立 draft PR `#2`。
+- 持續做安全與維運硬化：補上 fetch failure debug 保留、下載器的 HTTPS/private-IP/DNS 解析限制、`image/*` 驗證、retry 與 parser 錯誤訊息強化。
+- 同步修正文檔與 handoff：更新 `README.md`、`plan.md`、`HANDOFF.md`、新增 `AGENTS.md`，讓安全邊界、接手流程與測試狀態一致。
+- 完成 Phase 1 release hardening 與後續 sender review：測試擴到 18 個全綠，補上 sender delivery journal、retry-safe delivery 流程、`run.sh` wrapper，建立 tag `phase1-worker-hardened`、`phase1-release-complete`、`phase2-sender-reliable`，並建立 draft PR `#5`。
