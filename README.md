@@ -86,9 +86,8 @@ Date: 2026-04-11
 
 ### 2026-04-12 Repo Sync Check
 
-- 對齊 `AI_Agent_minipc_log` 本地與遠端 `main`，並確認舊 branch 不影響目前主線內容。
-- 修正 `README.md` 中殘留的舊 repo 名稱與過時文件連結，統一為 `AI_Agent_minipc_log` 與當前檔名。
-- 將 `youtube_post_repeater` 同步到本機工作區，確認本地與遠端主線一致。
+- 對齊 `AI_Agent_minipc_log` 本地與遠端主線，並修正 README 內的舊 repo 名稱與過時連結。
+- 將 `youtube_post_repeater` 同步到本機工作區，確認主線一致。
 
 ### 2026-04-12 youtube-post-worker
 
