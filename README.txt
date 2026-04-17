@@ -35,3 +35,26 @@
 - Updated `/home/roger/.codex/config.toml` to change global `sandbox_mode` from `workspace-write` to `danger-full-access`.
 - Kept `approval_policy = "never"` unchanged.
 - This affects new Codex sessions only; the current session still keeps its existing runtime sandbox state until restarted.
+
+2026-04-17 00:35 +08:00
+- Re-focused on `/home/roger/WorkSpace/youtube-post-worker` and treated it as the active repo context for this note.
+- Recorded an operational finding for future runs: some command line behavior only takes effect when Codex is launched with `--dangerously-bypass-approvals-and-sandbox`.
+- The symptom is easy to misread as a broken command, but the real cause is approval/sandbox enforcement in the normal launch mode.
+- Usage note: this flag bypasses both approvals and sandbox protections, so it should be treated as a controlled troubleshooting or fully trusted-environment option.
+
+2026-04-17 00:46 +08:00
+- Added `/home/roger/WorkSpace/youtube-post-worker/AGENTS.md` so future work starts by checking `README.md`, `plan.md`, and `HANDOFF.md`.
+- Synced repo docs after review: updated `README.md`, `HANDOFF.md`, and `plan.md` to reflect the current downloader safety boundary, including hostname-to-private-IP DNS resolution blocking.
+- Corrected stale handoff status: the handoff now warns that the working tree may not be clean and that the current unit test count is 11 rather than 10.
+- Continued using `/home/roger/WorkSpace/AI_Agent_minipc_log` as the session log target for `youtube-post-worker`.
+
+2026-04-17 00:56 +08:00
+- Continued focused development on `/home/roger/WorkSpace/youtube-post-worker` to close out `M7: Phase 1 release hardening`.
+- Hardened `worker/downloader.py` further: added `image/*` content-type validation plus limited retry handling for transient download failures.
+- Hardened `worker/parser.py` to report a specific error when YouTube returns a community-unavailable empty-state page instead of post data.
+- Added regression coverage in `tests/test_safety.py` and `tests/test_parser.py`; full suite now passes with 14 tests.
+- Live validation results:
+- `https://www.youtube.com/@yutinghaofinance/community` still parses and emits 11 new posts on a fresh state DB.
+- `https://www.youtube.com/channel/UC0lbAQVpenvfA2QqzsRtL_g/community` also parses to the same 11 posts.
+- `run --download-media` successfully wrote 11 payload files and 11 local media files under `/tmp/youtube-post-worker-m7-media-fresh/`.
+- Scheduler validation found a real portability bug: local `systemd-escape` does not support `--quote`, so `scripts/install_systemd.sh` was updated to use portable unit-safe escaping instead.

@@ -1,0 +1,43 @@
+## 2026-04-17 youtube-post-worker review
+
+- Focus repo: `/home/roger/WorkSpace/youtube-post-worker`
+- Checked:
+  - `README.md`
+  - `plan.md`
+  - `HANDOFF.md`
+  - `AGENTS.md`
+  - `worker/cli.py`
+  - `worker/fetcher.py`
+  - `worker/parser.py`
+  - `worker/downloader.py`
+  - `worker/state.py`
+  - `worker/sender.py`
+  - `worker/sender_n8n.py`
+  - `worker/sender_telegram.py`
+  - `worker/utils.py`
+  - `scripts/install_cron.sh`
+  - `scripts/install_systemd.sh`
+  - `scripts/run_once.sh`
+  - `tests/test_cli.py`
+  - `tests/test_parser.py`
+  - `tests/test_safety.py`
+  - `tests/test_state.py`
+- Verified:
+  - `python3 -m unittest discover -s tests -v` passed with 18 tests after sender reliability changes.
+  - Repo has uncommitted sender-related changes in `worker/cli.py`, `worker/sender.py`, `worker/sender_n8n.py`, `worker/sender_telegram.py`.
+- Findings:
+  - Sender integration had no sender-specific tests and could partially deliver, then resend already delivered items on the next run.
+  - Root docs were stale and still described message delivery as future work.
+- Changed or verified:
+  - Added delivery journal support in SQLite state.
+  - Updated CLI run flow to persist new posts, retry only undelivered sender items, and mark each successful delivery immediately.
+  - Added sender/state/CLI regression tests.
+  - Updated `.env.example` and `README.md` to match current sender behavior.
+  - Committed repo changes as `d08f384 Add reliable sender delivery tracking`.
+  - Added tag `phase2-sender-reliable` on commit `d08f384`.
+  - Renamed the untracked root helper intent from `work.sh` into a tracked `run.sh` wrapper and updated `README.md`.
+  - Verified `run.sh` and scheduler scripts with `bash -n`.
+- Operational notes:
+  - Current repo tests now cover sender config, sender URL validation, and retrying only undelivered posts after a partial sender failure.
+  - `gh` CLI is not installed in the environment, so PR creation should use git push plus the GitHub connector path instead of `gh pr create`.
+  - No new concrete safety findings were identified in this pass; residual risks remain the known parser fragility and synchronous sender design.

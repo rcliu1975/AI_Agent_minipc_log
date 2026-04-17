@@ -111,3 +111,25 @@ Date: 2026-04-11
 - 2026-04-13 持續加固 scraper 維運性：開始補 `fetch` 失敗時的 debug 保留機制，目標是在 403/429/異常 HTML 回應下，也能把失敗回應本體存到 `data/debug/` 供後續分析。
 - 本輪已修改 `worker/fetcher.py`、`worker/cli.py` 與 `tests/test_cli.py`，新增 `FetchError` 攜帶 `response_text` / `debug_path` 的設計，以及 `debug-fetch` 失敗時應寫出 `*fetch-error.html` 的測試。
 - 測試過程中發現一個尚未完成的修正：`debug-fetch` subcommand 的 `Namespace` 沒有 `mock_file` 欄位，導致新的 `_load_html()` 路徑在測試中出現 `AttributeError`。本次先中止進一步修改，待下一輪補成 `getattr(args, "mock_file", None)` 後再重跑測試並推回 PR。
+- 2026-04-17 重新聚焦 `youtube-post-worker` 並做安全檢查；先讀 `README.md`、`plan.md`、`worker/cli.py`、`worker/fetcher.py`、`worker/downloader.py`、scheduler 安裝腳本與現有 safety tests，再執行 `python3 -m unittest discover -s tests -v`，確認當下 10 個測試全綠。
+- 本輪發現一個實際 SSRF 缺口：`worker/downloader.py` 原本只會拒絕字面上的私有/回環 IP；若圖片 URL 使用一般 hostname，但 DNS 解析結果指向內網位址，舊邏輯仍可能放行。
+- 已修補 `worker/downloader.py`：媒體下載驗證現在會對非 IP hostname 做 `socket.getaddrinfo()` 解析；只要任何解析結果落在 private、loopback、link-local、multicast、reserved 或 unspecified 位址，就直接拒絕下載。
+- 已新增 `tests/test_safety.py::test_download_skips_hostname_resolving_to_private_ip` 回歸測試，覆蓋「hostname 經 DNS 解析到 `127.0.0.1`」的情境，避免之後再退化回只檢查字面 IP。
+- 修補後已重新執行 `python3 -m unittest discover -s tests -v`，目前 11 個測試全數通過；這輪沒有看到新的 secret、private key、任意抓取器或 scheduler 注入問題。
+- 本輪操作紀錄補充：實際使用上，某些 command line 行為只有在啟動時加上 `--dangerously-bypass-approvals-and-sandbox` 才會生效；單靠一般 CLI 啟動時，會受 approval/sandbox 限制影響而看起來像是「指令沒作用」。
+- 使用備註：`--dangerously-bypass-approvals-and-sandbox` 本質上是直接繞過批准與 sandbox 保護，應只在確認環境與命令安全時使用；若未加此 flag 時失敗，應優先判斷為權限模型限制，而不是 repo 指令本身異常。
+- 已在 `/home/roger/WorkSpace/youtube-post-worker` 新增 `AGENTS.md`，要求後續 agent 先檢查 `README.md`、`plan.md`、`HANDOFF.md`，再開始改碼或改文件，並持續把工作記錄寫回 `AI_Agent_minipc_log`。
+- 文件一致性補正：已同步修正 `youtube-post-worker/README.md`、`youtube-post-worker/HANDOFF.md`、`youtube-post-worker/plan.md`，讓下載安全描述反映最新實作，明確包含「hostname 經 DNS 解析後若落到 private/loopback 等位址也會拒絕」。
+- handoff 狀態補正：已把 `HANDOFF.md` 內過時的「工作樹乾淨」改成提醒接手前先跑 `git status --short --branch`，並把測試數量由 10 更新為 11。
+- 持續完成 `youtube-post-worker` 的 `M7: Phase 1 release hardening`：已補強 `worker/downloader.py`，新增媒體回應 `Content-Type` 必須為 `image/*` 的驗證，並對暫時性下載失敗做有限次數 retry。
+- 已補強 `worker/parser.py`：若 YouTube community 頁回傳的是「無法造訪這個社群 / community unavailable」空狀態，而非貼文資料，現在會丟出明確的 parse error，避免只看到泛用解析失敗。
+- 已新增回歸測試覆蓋：
+- `tests/test_safety.py::test_download_skips_non_image_content_type`
+- `tests/test_safety.py::test_download_retries_transient_failure_then_succeeds`
+- `tests/test_parser.py::test_parse_raises_specific_error_for_unavailable_community`
+- 重新執行 `python3 -m unittest discover -s tests -v` 後，目前共有 14 個測試全數通過。
+- M7 live 驗證已補齊：
+- `https://www.youtube.com/@yutinghaofinance/community` 在 fresh state DB 下仍可抓出並輸出 11 篇新貼文。
+- `https://www.youtube.com/channel/UC0lbAQVpenvfA2QqzsRtL_g/community` 也可 live 解析出同樣的 11 篇貼文。
+- `run --download-media` 已實測成功，於 `/tmp/youtube-post-worker-m7-media-fresh/` 產生 11 個 payload 與 11 個本地媒體檔。
+- 排程腳本驗證期間發現一個實際相容性問題：本機 `systemd-escape` 不支援 `--quote`。已修正 `scripts/install_systemd.sh` 改採腳本內的 portable escaping，並用 fake `systemctl` 加 `systemd-analyze verify` 確認產生的 user unit 可通過語法驗證。
