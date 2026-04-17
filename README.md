@@ -86,28 +86,31 @@ Date: 2026-04-11
 
 ### 2026-04-12 Repo Sync Check
 
-- 確認 `AI_Agent_minipc_log` 本地 `main` 已 fast-forward 到 `origin/main`，目前對齊 commit `c469b8a`。
-- 確認本地 `codex/rename-local-repo-dir` upstream 已刪除，但其內容與 `origin/main` 相同；為避免額外破壞性操作，這次未刪本地 branch。
-- 修正 `README.md` 內殘留的 repo 名稱 `AI_Agent_setup_log` 與過時的 n8n 文件連結，統一為 `AI_Agent_minipc_log` 與目前實際檔名。
-- 已將 `youtube_post_repeater` clone 到 `/home/roger/WorkSpace/youtube_post_repeater`，並確認本地 `main` 與 `origin/main` 對齊於 commit `12993bf`。
+- 對齊 `AI_Agent_minipc_log` 本地與遠端主線，並修正 README 內的舊 repo 名稱與過時連結。
+- 將 `youtube_post_repeater` 同步到本機工作區，確認主線一致。
 
 ### 2026-04-12 youtube-post-worker
 
-- 已將 `youtube-post-worker` clone 到 `/home/roger/WorkSpace/youtube-post-worker`，並確認 repo 初始狀態只有 `README.md` 與 `plan.md` 規劃文件。
-- 依目前 agent rule 先做 repo 安全掃描；未發現實際 secret、private key 或危險腳本，但發現尚未建立 `.gitignore`、`.env.example`、runtime 資料夾隔離，存在日後誤提交 debug/output/SQLite 檔的風險。
-- 已補上 `pyproject.toml`、`.gitignore`、`.env.example`、`docs/architecture.md`，並建立 `worker/`、`tests/`、`scripts/`、`data/debug`、`data/out`、`data/media` 骨架。
-- 已實作第一版核心模組：`worker/cli.py`、`models.py`、`state.py`、`fetcher.py`、`parser.py`、`output.py`、`downloader.py`、`sender.py`、`utils.py`。
-- CLI 目前支援 `init-db`、`run`、`debug-fetch`、`debug-parse`、`list-new`；`run` 可用 saved HTML mock file 做 end-to-end 驗證，並會輸出 JSON payload 與 SQLite 去重結果。
-- 已新增 `scripts/run_once.sh`、`scripts/install_cron.sh`、`scripts/install_systemd.sh`，並同步在 repo `README.md` 記錄其用途與基本使用說明。
-- 已加入 `tests/fixtures/sample_community.html` 與 3 個 `unittest` 測試，涵蓋 parser、state 與 CLI mock run。
-- 已本地驗證：`python3 -m unittest discover -s tests -v` 全數通過；mock `run` 會先輸出 2 筆新文、第二次重跑則正確回傳無新文。
-- 已用真實頻道 `https://www.youtube.com/@yutinghaofinance/community` 做 live 驗證；初版 parser 會混入非目標作者內容，因此已改為依 `authorEndpoint.browseEndpoint.canonicalBaseUrl` 過濾，只保留目標頻道自己的 community 貼文。
-- 已同步修正圖片抽取邏輯，不再把同一張圖的多個縮圖尺寸全部寫入 payload，而是保留每組 thumbnails 中解析度最高的一個 URL。
-- live 驗證結果：重新解析保存的 raw HTML 後，共得到 11 篇屬於 `游庭皓的財經皓角`、`UC0lbAQVpenvfA2QqzsRtL_g` 的貼文；直接用 live URL 連跑兩次 `run`，第一次回傳 `10` 並輸出 11 個 payload，第二次回傳 `0`，證明 SQLite 去重生效。
-- 已建立 branch `codex/bootstrap-youtube-worker`，commit `b0c6c25` (`Bootstrap worker and validate live parsing`)；由於本機沒有 `gh` 且 origin push URL 原本是 HTTPS，已只在此 repo 將 `origin` 的 push URL 改為 SSH 後成功推送。
-- 已建立 draft PR `#2`：`[codex] Bootstrap worker and validate live YouTube parsing`，連結為 `https://github.com/rcliu1975/youtube-post-worker/pull/2`。
-- 已追加 follow-up commit `851dcf2` (`Harden channel author matching`) 到同一個 PR；修正 parser 在 `/channel/UC.../community` 形式 URL 下，可能因 canonical path 與 handle path 不同而誤排除正確貼文的問題。
-- 已補測試覆蓋 `https://www.youtube.com/channel/UC123456789/community` 這類 channel-id URL，並重新執行 `python3 -m unittest discover -s tests -v`，4 個測試全數通過。
-- 2026-04-13 持續加固 scraper 維運性：開始補 `fetch` 失敗時的 debug 保留機制，目標是在 403/429/異常 HTML 回應下，也能把失敗回應本體存到 `data/debug/` 供後續分析。
-- 本輪已修改 `worker/fetcher.py`、`worker/cli.py` 與 `tests/test_cli.py`，新增 `FetchError` 攜帶 `response_text` / `debug_path` 的設計，以及 `debug-fetch` 失敗時應寫出 `*fetch-error.html` 的測試。
-- 測試過程中發現一個尚未完成的修正：`debug-fetch` subcommand 的 `Namespace` 沒有 `mock_file` 欄位，導致新的 `_load_html()` 路徑在測試中出現 `AttributeError`。本次先中止進一步修改，待下一輪補成 `getattr(args, "mock_file", None)` 後再重跑測試並推回 PR。
+- 建立並逐步補齊 `youtube-post-worker`：完成 Python package 骨架、CLI、SQLite 去重、JSON 輸出、排程腳本與基本測試。
+- 完成 live parsing 與資料品質修正：針對目標頻道作者過濾、圖片抽取去重、`/channel/UC.../community` 相容性做修補，並建立 draft PR `#2`。
+- 持續做安全與維運硬化：補上 fetch failure debug 保留、下載器的 HTTPS/private-IP/DNS 解析限制、`image/*` 驗證、retry 與 parser 錯誤訊息強化。
+- 同步修正文檔與 handoff：更新 `README.md`、`plan.md`、`HANDOFF.md`、新增 `AGENTS.md`，讓安全邊界、接手流程與測試狀態一致。
+- 完成 Phase 1 release hardening 與後續 sender review：測試擴到 18 個全綠，補上 sender delivery journal、retry-safe delivery 流程、`run.sh` wrapper，建立 tag `phase1-worker-hardened`、`phase1-release-complete`、`phase2-sender-reliable`，並建立 draft PR `#5`。
+
+### 2026-04-13 youtube-post-worker 安全與文件整理
+
+- 重新聚焦 `youtube-post-worker`，補強 fetch 與媒體下載安全限制，並增加對應 regression tests；完整測試由 5 個提升到 10 個且全數通過。
+- 將 `youtube-post-worker/README.md`、`plan.md`、`HANDOFF.md` 改寫並同步為中文導向內容，讓使用方式、風險與接手資訊一致。
+
+### 2026-04-16 youtube-post-worker 狀態確認
+
+- 再次檢查 `youtube-post-worker` 主線狀態與安全邊界，確認沒有新增明顯 secret 或私有端點暴露，既有 fetch 與 downloader 限制仍有效。
+- 將 repo remote 統一為 SSH，並建立 milestone tag `phase1-worker-hardened`。
+
+### 2026-04-17 工作環境與 youtube-post-worker 後續硬化
+
+- 調整 Codex 全域設定，將新 session 的 `sandbox_mode` 改為 `danger-full-access`，並記錄這只影響之後新開的 session。
+- 補記運行經驗：某些 CLI 行為必須在啟動時加上 `--dangerously-bypass-approvals-and-sandbox` 才會生效，未加時應先判斷為權限模型限制。
+- 更新 `youtube-post-worker/AGENTS.md`、`README.md`、`HANDOFF.md`、`plan.md`，讓下載安全邊界、handoff 狀態與測試數量一致。
+- 完成 `M7` 釋出前硬化：加上 `image/*` 驗證、暫時性下載 retry、community unavailable 明確錯誤、更多 live 驗證，測試提升到 14 個全綠。
+- 深入 review sender 流程後，補上 SQLite delivery journal、retry-safe delivery 流程、sender regression tests 與 `run.sh` wrapper；完整測試提升到 18 個全綠，並建立 draft PR `#5`。
