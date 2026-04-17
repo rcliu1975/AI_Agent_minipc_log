@@ -96,3 +96,21 @@ Date: 2026-04-11
 - 持續做安全與維運硬化：補上 fetch failure debug 保留、下載器的 HTTPS/private-IP/DNS 解析限制、`image/*` 驗證、retry 與 parser 錯誤訊息強化。
 - 同步修正文檔與 handoff：更新 `README.md`、`plan.md`、`HANDOFF.md`、新增 `AGENTS.md`，讓安全邊界、接手流程與測試狀態一致。
 - 完成 Phase 1 release hardening 與後續 sender review：測試擴到 18 個全綠，補上 sender delivery journal、retry-safe delivery 流程、`run.sh` wrapper，建立 tag `phase1-worker-hardened`、`phase1-release-complete`、`phase2-sender-reliable`，並建立 draft PR `#5`。
+
+### 2026-04-13 youtube-post-worker 安全與文件整理
+
+- 重新聚焦 `youtube-post-worker`，補強 fetch 與媒體下載安全限制，並增加對應 regression tests；完整測試由 5 個提升到 10 個且全數通過。
+- 將 `youtube-post-worker/README.md`、`plan.md`、`HANDOFF.md` 改寫並同步為中文導向內容，讓使用方式、風險與接手資訊一致。
+
+### 2026-04-16 youtube-post-worker 狀態確認
+
+- 再次檢查 `youtube-post-worker` 主線狀態與安全邊界，確認沒有新增明顯 secret 或私有端點暴露，既有 fetch 與 downloader 限制仍有效。
+- 將 repo remote 統一為 SSH，並建立 milestone tag `phase1-worker-hardened`。
+
+### 2026-04-17 工作環境與 youtube-post-worker 後續硬化
+
+- 調整 Codex 全域設定，將新 session 的 `sandbox_mode` 改為 `danger-full-access`，並記錄這只影響之後新開的 session。
+- 補記運行經驗：某些 CLI 行為必須在啟動時加上 `--dangerously-bypass-approvals-and-sandbox` 才會生效，未加時應先判斷為權限模型限制。
+- 更新 `youtube-post-worker/AGENTS.md`、`README.md`、`HANDOFF.md`、`plan.md`，讓下載安全邊界、handoff 狀態與測試數量一致。
+- 完成 `M7` 釋出前硬化：加上 `image/*` 驗證、暫時性下載 retry、community unavailable 明確錯誤、更多 live 驗證，測試提升到 14 個全綠。
+- 深入 review sender 流程後，補上 SQLite delivery journal、retry-safe delivery 流程、sender regression tests 與 `run.sh` wrapper；完整測試提升到 18 個全綠，並建立 draft PR `#5`。
