@@ -114,3 +114,8 @@ Date: 2026-04-11
 - 更新 `youtube-post-worker/AGENTS.md`、`README.md`、`HANDOFF.md`、`plan.md`，讓下載安全邊界、handoff 狀態與測試數量一致。
 - 完成 `M7` 釋出前硬化：加上 `image/*` 驗證、暫時性下載 retry、community unavailable 明確錯誤、更多 live 驗證，測試提升到 14 個全綠。
 - 深入 review sender 流程後，補上 SQLite delivery journal、retry-safe delivery 流程、sender regression tests 與 `run.sh` wrapper；完整測試提升到 18 個全綠，並建立 draft PR `#5`。
+- 進一步為 Telegram sender 補上圖片投遞：優先直接使用公開圖片 URL，單張圖走 `sendPhoto`、多張圖走 `sendMediaGroup`；若 URL 投遞失敗且本地已有 `local_path`，則 fallback 為本地檔案上傳。
+- 已新增對應 sender 測試，覆蓋無圖、單圖、多圖，以及 URL 失敗後改用本地檔案上傳的情境；`youtube-post-worker` 測試提升到 23 個且全數通過。
+- 已建立 `youtube-post-worker` draft PR `#6`：`[codex] Send Telegram images with URL fallback`。
+- 已建立 `AI_Agent_minipc_log` draft PR `#15`：`[codex] Record Telegram image sender work`。
+- 已在 `youtube-post-worker` 準備建立對應 milestone tag `phase2-telegram-image-sender`。
