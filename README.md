@@ -86,10 +86,9 @@ Date: 2026-04-11
 
 ### 2026-04-12 Repo Sync Check
 
-- 確認 `AI_Agent_minipc_log` 本地 `main` 已 fast-forward 到 `origin/main`，目前對齊 commit `c469b8a`。
-- 確認本地 `codex/rename-local-repo-dir` upstream 已刪除，但其內容與 `origin/main` 相同；為避免額外破壞性操作，這次未刪本地 branch。
-- 修正 `README.md` 內殘留的 repo 名稱 `AI_Agent_setup_log` 與過時的 n8n 文件連結，統一為 `AI_Agent_minipc_log` 與目前實際檔名。
-- 已將 `youtube_post_repeater` clone 到 `/home/roger/WorkSpace/youtube_post_repeater`，並確認本地 `main` 與 `origin/main` 對齊於 commit `12993bf`。
+- 對齊 `AI_Agent_minipc_log` 本地與遠端 `main`，並確認舊 branch 不影響目前主線內容。
+- 修正 `README.md` 中殘留的舊 repo 名稱與過時文件連結，統一為 `AI_Agent_minipc_log` 與當前檔名。
+- 將 `youtube_post_repeater` 同步到本機工作區，確認本地與遠端主線一致。
 
 ### 2026-04-12 youtube-post-worker
 
