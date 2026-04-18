@@ -119,3 +119,19 @@ Date: 2026-04-11
 - 已建立 `youtube-post-worker` draft PR `#6`：`[codex] Send Telegram images with URL fallback`。
 - 已建立 `AI_Agent_minipc_log` draft PR `#15`：`[codex] Record Telegram image sender work`。
 - 已在 `youtube-post-worker` 準備建立對應 milestone tag `phase2-telegram-image-sender`。
+
+### 2026-04-18 youtube-post-worker 焦點切換
+
+- 焦點 repo 為 `/home/roger/WorkSpace/youtube-post-worker`。
+- 已檢查 `README.md`、`plan.md`、`HANDOFF.md`、`AGENTS.md` 與 `pyproject.toml`。
+- 已確認 repo 狀態：
+  - branch 為 `main`
+  - working tree 乾淨
+  - remote 使用 `git@github.com:rcliu1975/youtube-post-worker.git`
+- 已確認目前 handoff 狀態：
+  - Phase 1 hardened / release work 已完成
+  - repo 提供 CLI、SQLite 去重、live fetch/parse、媒體下載與 sender 相關能力
+- 本次新增 sender 控制參數：
+  - `--sender-delay-seconds`
+  - `--sender-single-post`
+- 已補對應 README / HANDOFF 說明與 CLI 測試。
