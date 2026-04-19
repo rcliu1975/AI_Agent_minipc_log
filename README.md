@@ -5,21 +5,20 @@
 
 目前收錄：
 
-- [Docker_n8n_ngrok_安裝部署_ubuntu.md](./n8n/Docker_n8n_ngrok_安裝部署_ubuntu.md)
+- [n8n_ngrok_安裝部署_ubuntu.md](./n8n_ngrok_安裝部署_ubuntu.md)
 
 ## 結構
 
 ```text
 AI_Agent_minipc_log/
 ├── README.md
-└── n8n/
-    └── Docker_n8n_ngrok_安裝部署_ubuntu.md
+└── n8n_ngrok_安裝部署_ubuntu.md
 ```
 
 ## 說明
 
 - `README.md` 內含 `MiniPC Setup Log` 區塊，集中記錄 MiniPC 初始環境建置與系統設定狀態。
-- `n8n/Docker_n8n_ngrok_安裝部署_ubuntu.md` 整理 Docker、n8n、ngrok 的部署步驟與 Ubuntu 實機校正內容。
+- `n8n_ngrok_安裝部署_ubuntu.md` 整理 Docker、n8n、ngrok 的部署步驟與 Ubuntu 實機校正內容。
 
 目前這個 repo 是從 `My-Notes` 拆出的獨立版本，方便後續單獨維護與發布。
 若你在舊筆記、舊分支名稱或歷史說明中看到 `AI_Agent_setup_log`，都應視為目前這個 `AI_Agent_minipc_log` repo。
@@ -66,7 +65,7 @@ Date: 2026-04-11
 
 ### 2026-04-12 n8n / Webhook
 
-- 讀取並重整 `AI_Agent_minipc_log/n8n/Docker_n8n_ngrok_安裝部署_ubuntu.md`，改寫成符合本機實況的 Ubuntu 修正版。
+- 讀取並重整 `AI_Agent_minipc_log/n8n_ngrok_安裝部署_ubuntu.md`，改寫成符合本機實況的 Ubuntu 修正版。
 - 確認本機 `sudo` 需要密碼、`docker` 尚未安裝，且 rootless Docker 需要的 `newuidmap` / `slirp4netns` 不存在，因此這次未採 Docker 路線。
 - 改用 user-level 方案部署 `n8n 2.15.1`，安裝位置為 `/home/roger/.local/share/n8n-app`，資料目錄為 `/home/roger/.n8n`。
 - repo `scripts/` 現在只保留一次性部署腳本，主要使用 `/home/roger/WorkSpace/AI_Agent_minipc_log/scripts/deploy-n8n-runtime.sh` 來建立或同步 runtime 檔案。
@@ -82,7 +81,7 @@ Date: 2026-04-11
 - 更新 `agent_rule.md` 與 `keep-going-prompt.md`。
 - 新增 repo 內的 `scripts/` 目錄，供非 repo / 非 GitHub 操作腳本使用；後續相關腳本需同步記錄於本檔。
 - 依目前規則執行 repo 安全掃描；未發現實際 secret、private key 或 live private endpoint。
-- 將 `n8n/Docker_n8n_ngrok_安裝部署_ubuntu.md` 中的 `NGROK_AUTHTOKEN` 文件範例改為空值佔位，避免看起來像真實憑證。
+- 將 `n8n_ngrok_安裝部署_ubuntu.md` 中的 `NGROK_AUTHTOKEN` 文件範例改為空值佔位，避免看起來像真實憑證。
 
 ### 2026-04-12 Repo Sync Check
 

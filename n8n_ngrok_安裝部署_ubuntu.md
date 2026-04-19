@@ -519,39 +519,3 @@ journalctl --user -u localtunnel.service -f
 ```bash
 cat /home/roger/.n8n/current_webhook_url
 ```
-
-### 14.5 手動重啟 n8n
-
-```bash
-systemctl --user restart n8n.service
-```
-
-### 14.6 手動重啟 localtunnel
-
-```bash
-systemctl --user restart localtunnel.service
-```
-
-## 15. 現階段最準確的總結
-
-這份文件的重點不再是「如何在理想條件下裝 Docker」，而是：
-
-```text
-在沒有 sudo、沒有 Docker、沒有 ngrok token 的 Ubuntu 主機上，
-先把 n8n 真正跑起來，
-再用可行的 HTTPS tunnel 讓 webhook 能工作，
-並把未來切回 ngrok / Docker 的路保留下來。
-```
-
-如果只看這台機器的現況，現在已經達成：
-
-- n8n 可用
-- 公網 HTTPS 可用
-- `WEBHOOK_URL` 自動更新可用
-- systemd user-level 管理可用
-
-尚未完成但已預留的部分是：
-
-- ngrok 正式接管
-- Docker 化
-- reboot 後無登入自動起服務
