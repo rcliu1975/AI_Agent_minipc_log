@@ -134,3 +134,8 @@ Date: 2026-04-11
   - `--sender-delay-seconds`
   - `--sender-single-post`
 - 已補對應 README / HANDOFF 說明與 CLI 測試。
+
+### 2026-04-19 n8n / ngrok 自動同步
+
+- 新增 `scripts/configure-ngrok-for-n8n.sh`，用來把 `NGROK_AUTHTOKEN` 寫入 `~/n8n-stack/.env`，並切換 `n8n` 的公開 tunnel 到 `ngrok`。
+- 重寫 `n8n_ngrok_安裝部署_ubuntu.md`，將 `ngrok` 網址變動時如何自動同步到 `n8n` 的原理放到文件開頭，並改以安裝與設定流程為主。
