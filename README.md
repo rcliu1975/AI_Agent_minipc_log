@@ -139,3 +139,51 @@ Date: 2026-04-11
 
 - 新增 `scripts/configure-ngrok-for-n8n.sh`，用來把 `NGROK_AUTHTOKEN` 寫入 `~/n8n-stack/.env`，並切換 `n8n` 的公開 tunnel 到 `ngrok`。
 - 重寫 `n8n_ngrok_安裝部署_ubuntu.md`，將 `ngrok` 網址變動時如何自動同步到 `n8n` 的原理放到文件開頭，並改以安裝與設定流程為主。
+
+### 2026-04-19 youtube-post-worker 移除 run.sh
+
+- 焦點 repo 為 `/home/roger/WorkSpace/youtube-post-worker`。
+- 已檢查 `README.md`、`plan.md`、`HANDOFF.md`、`AGENTS.md`。
+- 接受並整理 `run.sh` 刪除，將執行方式統一收斂到 `README.md`。
+- `HANDOFF.md` 的操作指令改為指向 `README.md`，避免同一套使用方法重複維護。
+
+### 2026-04-19 youtube-post-worker n8n 跟隨 ngrok domain
+
+- 焦點 repo 為 `/home/roger/WorkSpace/youtube-post-worker`。
+- 已檢查 `worker/sender.py`、`tests/test_sender.py`、`.env.example`、`README.md`。
+- `youtube-post-worker` 現在支援在未提供完整 `N8N_WEBHOOK_URL` 時，改由 `N8N_WEBHOOK_PATH` 與 `N8N_PUBLIC_URL_FILE` 組出完整 n8n webhook URL。
+- 預設公開 base URL 狀態檔為 `/home/roger/.n8n/current_webhook_url`，可與 n8n / ngrok 端既有的自動同步機制對齊。
+- 已新增對應 sender 測試，驗證可從狀態檔與 path 正確組出 HTTPS webhook URL，且既有 sender 測試仍全部通過。
+
+### 2026-04-19 youtube-post-worker README / script 重整
+
+- 焦點 repo 為 `/home/roger/WorkSpace/youtube-post-worker`。
+- 已檢查 `README.md`、`plan.md`、`HANDOFF.md`、`scripts/install_systemd.sh`。
+- 將 helper script 路徑整理為 `scripts/run.sh`，並同步更新 `install_systemd.sh`。
+- 將 `README.md` 收斂成安裝方法、快速開始、常用操作、排程安裝、常用參數與短版 repo 結構。
+- 將測試規畫移到 `plan.md`，將安全邊界與已知限制集中到 `HANDOFF.md`，避免 README 混入過多維運細節。
+
+### 2026-04-19 youtube-post-worker README 補充 n8n / ngrok 原理
+
+- 焦點 repo 為 `/home/roger/WorkSpace/youtube-post-worker`。
+- 已將對話中整理出的 `n8n` / `webhook` / `ngrok` domain 自動更新原理補到 `README.md` 末尾。
+- 補充內容說明了 `current_webhook_url`、`N8N_WEBHOOK_PATH`、以及 `youtube-post-worker` 與 `n8n` 如何共同跟隨新的 ngrok domain。
+
+### 2026-04-19 youtube-post-worker README 補充續行符號說明
+
+- 焦點 repo 為 `/home/roger/WorkSpace/youtube-post-worker`。
+- 已在 `README.md` 的 `n8n/ngrok` 範例附近補上 `\` 續行符號的短提醒。
+- 補充內容說明：多行其實仍是同一條命令，且該寫法只影響當次執行，不會把設定永久留在目前 shell session。
+
+### 2026-04-19 youtube-post-worker scripts 直白化
+
+- 焦點 repo 為 `/home/roger/WorkSpace/youtube-post-worker`。
+- 將通用的 `scripts/run.sh` 改為數支用途明確的範本腳本：`run_n8n.sh`、`run_n8n_posts.sh`、`run_n8n_test.sh`、`run_telgram.sh`。
+- `run_telgram.sh` 內的敏感值已改成佔位符，避免真實 Telegram 憑證進版控。
+- `install_systemd.sh` 已改成可指定 `RUN_SCRIPT`，且 README 已補成可直接 `./scripts/...` 執行的寫法。
+
+### 2026-04-19 youtube-post-worker README 補充 systemd 實例
+
+- 焦點 repo 為 `/home/roger/WorkSpace/youtube-post-worker`。
+- 已在 `README.md` 的排程安裝段落補上兩個完整實例：`run_n8n_posts.sh` 與 `run_n8n.sh` 對應的 `install_systemd.sh` 用法。
+- 目的是讓 `RUN_SCRIPT` 與 `CHANNEL_URL` 的組合可以直接複製執行，不必自行推敲。
